@@ -1,5 +1,40 @@
 # CLAUDE.md
 
+## Super Claude (regles prioritaires)
+
+Sources integrees: claude-token-efficient, graphify, agency-agents, prompts.chat (copies reduites dans `_external_tools/`).
+
+### Sobriete en tokens (claude-token-efficient)
+- Lire les fichiers existants avant d'ecrire. Ne pas relire sauf modification.
+- Raisonner a fond, repondre court. Resultat d'abord, explication seulement si demandee.
+- Phrases courtes. Pas de preambule, pas de conclusion, pas de flatterie.
+- Pas d'emojis, pas de tirets cadratins, guillemets droits uniquement. Le code reste normal.
+- Ignorer les fichiers de plus de 100KB sauf necessite.
+- Ne pas deviner API, versions, flags, SHA, noms de paquets: verifier dans le code ou la doc.
+- Lecture ciblee: Grep/Glob puis Read avec offset et limit. Jamais de lecture de dossier entier.
+- Solution la plus simple qui marche. Pas d'abstraction pour un usage unique.
+- Profils supplementaires: `.claude/profiles/` (`/sc-lean <profil>`).
+
+### Cartographie (graphify)
+- Si `graphify-out/graph.json` existe: `graphify query "<question>"` avant tout grep ou lecture de source; idem dans chaque prompt de sous-agent.
+- Relations: `graphify path "A" "B"`; concept: `graphify explain "X"`. `GRAPH_REPORT.md` seulement pour une vue d'ensemble.
+- Apres modification de code: `graphify update .` (AST, sans cout API).
+- Pas de graphe: `/sc-map`. Installation (a faire par l'utilisateur): `uv tool install graphifyy` puis `graphify claude install --project`.
+- Ne pas committer `graphify-out/` sans demande.
+
+### Routage des sous-agents (agency-agents)
+Agents dans `.claude/agents/`, modele force dans leur frontmatter:
+- haiku: `sc-scout` (localisation de code), `sc-minimal-change` (petites corrections), `sc-brand-guardian`.
+- sonnet: `sc-ui-designer`, `sc-ux-architect`, `sc-ux-researcher`, `sc-ui-finish-gate`, `sc-frontend-dev`, `sc-architect`, `sc-code-reviewer`.
+- Taches simples: haiku ou sonnet, jamais opus. Lancer en parallele les agents independants.
+- Design/UI: `/sc-design`. Architecture: `/sc-arch`. Revue: `/sc-review`.
+
+### Prompts (prompts.chat)
+- Index: `.claude/prompts/INDEX.md` (titres). Recherche: `/sc-prompt <mots>` ou `node scripts/super-claude/prompt-lookup.js <mots> --devs`.
+- Ne jamais charger `prompts.csv` en entier. S'inspirer, ne pas copier tel quel.
+
+---
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
