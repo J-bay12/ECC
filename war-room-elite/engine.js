@@ -85,7 +85,7 @@
   }
 
   function simulate(D, F, opts) {
-    opts = opts || {}; const shock = opts.shock || 0, fmt = x => Math.round(x).toLocaleString('fr-FR');
+    opts = opts || {}; const shock = opts.shock || 0, fmt = x => Math.round(x).toLocaleString(root.__LOC || 'fr-FR');
     const me = firmScores(D), cp = firmScores(competitor(opts.comp || 'standard')), sup = SUP[F.supplier || 'corecraft'], cb = CB[F.cb || 'competitive'];
     for (const n of PRODS) { const rv = me.meta[n].rev, fr = rv > 0 && rv <= 12 ? (12 - rv) / 12 : 0; for (const sg of SEGS) me.scores[n][sg] *= (1 + sup.d) * (1 + (D[n].rec || 0) / 1000 * fr); }
     const res = { products: {}, segments: {}, alerts: [] }, demand = {}; PRODS.forEach(n => demand[n] = 0);
@@ -128,7 +128,7 @@
 
   function fitProduction(D, F, comp, iters) { for (let i = 0; i < (iters || 3); i++) { const r = simulate(D, F, { comp, shock: 0 }); for (const n of PRODS) D[n].prod = Math.min(BASE[n].cap * 2, Math.max(0, Math.round((r.products[n].demand * 1.1 - BASE[n].inv) / 10) * 10)); } }
   function effE(F, E) { const x = DATA.ESGFX, e = { community: E.community, employee: E.employee }; (F.programs || []).forEach(i => { e.community += x.prog[i] || 0; }); e.employee += (x.train || 0) * (F.train || 0) / 1000 + (x.rr || 0) * (F.rr || 0) / 1000 + (F.cb === 'leader' ? x.leader || 0 : 0); return e; }
-  function rules(r, E, F) { const e = F ? effE(F, E) : E, L = [['Déchets', r.waste, '< 8 g', r.waste < 8, r.waste.toFixed(2).replace('.', ',') + ' g'], ['Émissions', r.emissions, '< 80 kg', r.emissions < 80, r.emissions.toFixed(1).replace('.', ',') + ' kg'], ['Community', e.community, '> 50', e.community > 50, e.community.toFixed(1).replace('.', ',')], ['Employee', e.employee, '> 3', e.employee > 3, e.employee.toFixed(1).replace('.', ',')]]; const miss = L.filter(x => !x[3]).length; return { L, miss, pen: PEN[miss] }; }
+  function rules(r, E, F) { const lf = (x, d) => x.toLocaleString(root.__LOC || 'fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d }), e = F ? effE(F, E) : E, L = [['Déchets', r.waste, '< 8 g', r.waste < 8, lf(r.waste, 2) + ' g'], ['Émissions', r.emissions, '< 80 kg', r.emissions < 80, lf(r.emissions, 1) + ' kg'], ['Community', e.community, '> 50', e.community > 50, lf(e.community, 1)], ['Employee', e.employee, '> 3', e.employee > 3, lf(e.employee, 1)]]; const miss = L.filter(x => !x[3]).length; return { L, miss, pen: PEN[miss] }; }
   const esgKnown = () => DATA.ESGFX.prog.some(x => x) || DATA.ESGFX.train || DATA.ESGFX.rr || DATA.ESGFX.leader;
 
   const STRATS = {
