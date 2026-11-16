@@ -19,7 +19,8 @@
       Agape: { seg: 'Size', pfmn: 4.0, size: 11.0, mtbf: 19000, age: 2.6, price: 33, promo: 700, sales: 700, inv: 62, cap: 600, auto: 3, mat: 12.96, aware: .455, sold: 314 },
     },
     R0: { cash: 3431, ar: 8307, inv: 8618, fixed: 75867, ap: 6584, ltd: 41700, equity: 47939, shares: 2000, price: 34.25, sales: 101073, profit: 4185, depr: 7587, interest: 5421, eps: 2.09, bv: 23.97, ebit: 11991, cmPct: .2825, ros: .041, roe: .087, units: 3800 },
-    LIM: { bond: 18900, curDebt: 20300, stock: 13600, capex: 32693, div: 2.09, employees: 704, bondRate: .113, debtRate: .099, tax: .35, issueFee: .05 },
+    LIM: { bond: 18900, curDebt: 20300, stock: 13600, capex: 32693, div: 2.09, employees: 704, bondRate: .113, debtRate: .099, tax: .35, issueFee: .05, retireDebt: 41700, buyback: 13600 }, // retireDebt et buyback: plafonds a lire dans l'ecran Finance de Capsim
+    TARGET: { shares: 2000 }, // actions en circulation visees a la fin de partie (k)
     SUP: { value: { n: 'Value Supply', mat: -.05, em: .05, w: .02, d: -.03 }, corecraft: { n: 'Corecraft Materials', mat: 0, em: 0, w: 0, d: 0 }, protech: { n: 'ProTech Resources', mat: .05, em: -.10, w: -.04, d: .02 }, ecolux: { n: 'Ecolux Solutions', mat: .075, em: -.20, w: -.06, d: .04 } },
     CB: { budget: { n: 'Budget', lab: -.10 }, competitive: { n: 'Competitive', lab: .05 }, leader: { n: 'Leader', lab: .10 } },
     PROG: [['Food Drive', 500], ['Fundraising Banquet', 500], ['Charity 5K Race', 1000], ['Youth Technology Program', 1500], ['Community Housing Initiative', 2000]],
@@ -48,7 +49,7 @@
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
   function defaultDecisions(B) { B = B || BASE; const D = {}; for (const n of PRODS) { const b = B[n]; D[n] = { pfmn: b.pfmn, size: b.size, mtbf: b.mtbf, price: b.price, promo: b.promo, sales: b.sales, prod: Math.round(b.sold * 1.1 / 10) * 10, auto: b.auto, capAdd: 0, rev: null, rec: 0 }; } return D; }
-  const defaultFin = () => ({ bond: 0, stock: 0, div: 0, curDebt: 0, supplier: 'corecraft', energy: 0, cb: 'competitive', train: 0, rr: 0, programs: [] });
+  const defaultFin = () => ({ bond: 0, retire: 0, buyback: 0, stock: 0, div: 0, curDebt: 0, supplier: 'corecraft', energy: 0, cb: 'competitive', train: 0, rr: 0, programs: [] });
 
   function competitor(mode) {
     const D = defaultDecisions(CBASE), o = DATA.compObs;
@@ -141,18 +142,20 @@
       const s = SEG[b.seg]; if (d.price > s.price[1] - .5 || d.price < s.price[0] - .5) res.alerts.push({ lv: 'warn', t: `${n} : prix hors de la fourchette du segment (${(s.price[0] - .5).toFixed(2)} à ${(s.price[1] - .5).toFixed(2)} $).` });
     }
     const depr = R0.depr + capex / 15, admin = rev * .008, progCost = (F.programs || []).reduce((a, i) => a + PROG[i][1], 0), trainCost = (F.train || 0) * LIM.employees / 1000, esg = (F.energy || 0) + progCost + trainCost + (F.rr || 0);
-    const ebit = rev - varc - carry - depr - rd - mkt - admin - esg, interest = R0.interest + F.bond * LIM.bondRate + F.curDebt * LIM.debtRate, fees = F.bond * LIM.issueFee + F.stock * LIM.issueFee;
+    const ebit = rev - varc - carry - depr - rd - mkt - admin - esg, retire = Math.min(F.retire || 0, R0.ltd), bb = F.buyback || 0, interest = R0.interest + F.bond * LIM.bondRate + F.curDebt * LIM.debtRate - retire * LIM.bondRate, fees = F.bond * LIM.issueFee + F.stock * LIM.issueFee;
     const ebt = ebit - interest - fees, tax = ebt > 0 ? ebt * LIM.tax : 0, ps = ebt > 0 ? (ebt - tax) * .02 : 0, ni = ebt - tax - ps;
-    const shares = R0.shares + F.stock / R0.price, divTotal = F.div * shares, ar = rev * 30 / 365, ap = prodCost * 30 / 365;
-    let cash = R0.cash + ni + depr - (ar - R0.ar) + (ap - R0.ap) - (invVal - R0.inv) - capex + F.bond + F.stock + F.curDebt - divTotal - (R0.repay || 0);
+    const shares = Math.max(1, R0.shares + F.stock / R0.price - bb / R0.price), divTotal = F.div * shares, ar = rev * 30 / 365, ap = prodCost * 30 / 365;
+    let cash = R0.cash + ni + depr - (ar - R0.ar) + (ap - R0.ap) - (invVal - R0.inv) - capex + F.bond + F.stock + F.curDebt - divTotal - (R0.repay || 0) - retire - bb;
     const eloan = cash < 0 ? -cash : 0; if (eloan) cash = 0;
-    const equity = R0.equity + ni + F.stock - divTotal, fixed = R0.fixed + capex - depr, assets = cash + ar + invVal + fixed, liab = ap + R0.ltd + F.bond + F.curDebt + eloan;
+    const equity = R0.equity + ni + F.stock - bb - divTotal, fixed = R0.fixed + capex - depr, assets = cash + ar + invVal + fixed, liab = ap + R0.ltd - retire + F.bond + F.curDebt + eloan;
     const eps = ni / shares, bv = equity / shares; let price = bv + 5 * eps; price *= 1 - Math.min(.4, eloan / 40000); price = Math.max(1, bv * .5, price);
     const RAT = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'CC', 'C', 'D'], rating = RAT[clamp(Math.floor(liab / assets / .09), 0, 9)];
     if (eloan) res.alerts.unshift({ lv: 'bad', t: `Emprunt d'urgence de ${fmt(eloan)} k$ : la trésorerie de fin d'année est négative.` });
+    if ((F.retire || 0) > LIM.retireDebt) res.alerts.push({ lv: 'bad', t: `Remboursement de dette long terme de ${fmt(F.retire)} k$ : plafond de ${fmt(LIM.retireDebt)} k$.` });
+    if ((F.buyback || 0) > LIM.buyback) res.alerts.push({ lv: 'bad', t: `Rachat d'actions de ${fmt(F.buyback)} k$ : plafond de ${fmt(LIM.buyback)} k$.` });
     if (capex > LIM.capex) res.alerts.push({ lv: 'bad', t: `Investissement usine de ${fmt(capex)} k$ : Capsim plafonne à ${fmt(LIM.capex)} k$.` });
     const totDemand = SEGS.reduce((a, s) => a + res.segments[s].demand, 0);
-    Object.assign(res, { rev, varc, carry, cmPct: (rev - varc - carry) / rev, depr, rd, mkt, admin, esg, ebit, interest, fees, tax, ps, ni, cash, eloan, capex, equity, assets, liab, eps, bv, price, rating, shares, apNew: ap, fixedNew: fixed, compD: cd, teamD, marketCap: price * shares / 1000, share: units / totDemand, units, ros: ni / rev, roe: ni / equity, roa: ni / assets, leverage: assets / equity, invVal, divTotal, acc: me.acc, labSave,
+    Object.assign(res, { rev, varc, carry, cmPct: (rev - varc - carry) / rev, depr, rd, mkt, admin, esg, ebit, interest, fees, tax, ps, ni, cash, eloan, capex, equity, assets, liab, eps, bv, price, rating, shares, ltdEnd: R0.ltd - retire + F.bond, apNew: ap, fixedNew: fixed, compD: cd, teamD, marketCap: price * shares / 1000, share: units / totDemand, units, ros: ni / rev, roe: ni / equity, roa: ni / assets, leverage: assets / equity, invVal, divTotal, acc: me.acc, labSave,
       emissions: 100 * (1 + sup.em) * (1 - .10 * (F.energy || 0) / 2000), waste: PRODS.reduce((a, n) => a + 10 * (1 - .05 * (me.meta[n].rev > 0 && me.meta[n].rev <= 12 ? (D[n].rec || 0) : 0) / 10), 0) / PRODS.length * (1 + sup.w), progCost, trainCost });
     return res;
   }
@@ -167,7 +170,7 @@
       if (p.est > 0) { nb.pfmn = d.pfmn; nb.size = d.size; nb.mtbf = d.mtbf; nb.mat = p.matNew / (1 + .0123 * (d.rec || 0) / 10); }
       nb.price = d.price; nb.promo = d.promo; nb.sales = d.sales; nb.inv = Math.max(0, p.end); nb.cap = b.cap + Math.max(0, d.capAdd || 0); nb.auto = Math.max(b.auto, d.auto); nb.aware = p.aware; nb.sold = p.sold;
     }
-    Object.assign(nx.R0, { cash: r.cash, ar: r.rev * 30 / 365, inv: r.invVal, fixed: r.fixedNew, ap: r.apNew, ltd: DATA.R0.ltd + F.bond, equity: r.equity, shares: r.shares, price: r.price, sales: r.rev, profit: r.ni, depr: r.depr, interest: DATA.R0.interest + F.bond * LIM.bondRate, eps: r.eps, bv: r.bv, ebit: r.ebit, cmPct: r.cmPct, ros: r.ros, roe: r.roe, units: r.units, repay: F.curDebt });
+    Object.assign(nx.R0, { cash: r.cash, ar: r.rev * 30 / 365, inv: r.invVal, fixed: r.fixedNew, ap: r.apNew, ltd: r.ltdEnd, equity: r.equity, shares: r.shares, price: r.price, sales: r.rev, profit: r.ni, depr: r.depr, interest: DATA.R0.interest + (r.ltdEnd - DATA.R0.ltd) * LIM.bondRate, eps: r.eps, bv: r.bv, ebit: r.ebit, cmPct: r.cmPct, ros: r.ros, roe: r.roe, units: r.units, repay: F.curDebt });
     for (const sg of SEGS) { const s = nx.SEG[sg]; s.size *= 1 + s.g; s.ideal = [s.ideal[0] + s.drift[0], s.ideal[1] + s.drift[1]]; }
     if (r.compD) for (const n of PRODS) { const cb = CBASE[n], d = r.compD[n], nb = nx.CBASE[n], mv = Math.hypot(d.pfmn - cb.pfmn, d.size - cb.size) > .01;
       Object.assign(nb, { pfmn: d.pfmn, size: d.size, mtbf: d.mtbf, price: d.price, promo: d.promo, sales: d.sales, age: mv ? (cb.age + .5) / 2 + .5 : cb.age + 1, aware: clamp(cb.aware * .67 + awareGain(d.promo), 0, 1) }); }
@@ -176,7 +179,7 @@
       nx.INTEL.history = [cur, ent]; }
     nx.round = (DATA.round || 1) + 1; nx.year = (DATA.year || 2027) + 1; return nx;
   }
-  const hold = F => { const D = defaultDecisions(), G = Object.assign(defaultFin(), clone(F), { bond: 0, curDebt: 0, stock: 0, div: 0 }); return { D, F: G }; };
+  const hold = F => { const D = defaultDecisions(), G = Object.assign(defaultFin(), clone(F), { bond: 0, retire: 0, buyback: 0, curDebt: 0, stock: 0, div: 0 }); return { D, F: G }; };
 
   function fitProduction(D, F, comp, iters) { for (let i = 0; i < (iters || 3); i++) { const r = simulate(D, F, { comp, shock: 0 }); for (const n of PRODS) D[n].prod = Math.min(BASE[n].cap * 2, Math.max(0, Math.round((r.products[n].demand * 1.1 - BASE[n].inv) / 10) * 10)); } }
   function effE(F, E) { const x = DATA.ESGFX, e = { community: E.community, employee: E.employee }; (F.programs || []).forEach(i => { e.community += x.prog[i] || 0; }); e.employee += (x.train || 0) * (F.train || 0) / 1000 + (x.rr || 0) * (F.rr || 0) / 1000 + (F.cb === 'leader' ? x.leader || 0 : 0); return e; }

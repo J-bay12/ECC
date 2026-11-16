@@ -47,4 +47,19 @@ async function part3() {
   console.log('war-room elite intel: ok', f.length + ' failles, valeur de l\'information ' + (jEx - jGen).toFixed(2));
 }
 
-part1().then(part2).then(part3).catch(e => { console.error(e); process.exit(1); });
+part1().then(part2).then(part3).then(part4).catch(e => { console.error(e); process.exit(1); });
+
+async function part4() {
+  X.resetData(); const E = X.getData().STARTE;
+  // dette long terme: le remboursement baisse le solde, la tresorerie et les interets
+  const z = X.zero(), a = X.simulate(z.D, z.F, { comp: 'standard' }), F2 = Object.assign({}, z.F, { retire: 5000 }), b = X.simulate(z.D, F2, { comp: 'standard' });
+  assert.ok(Math.abs(b.ltdEnd - (X.R0.ltd - 5000)) < 1e-6 && b.interest < a.interest && b.cash < a.cash + 1e-6 + 5000);
+  // rachat d'actions: baisse le nombre d'actions
+  const F3 = Object.assign({}, z.F, { stock: 13600 }), c = X.simulate(z.D, F3, { comp: 'standard' }), F4 = Object.assign({}, F3, { buyback: 13600 }), d = X.simulate(z.D, F4, { comp: 'standard' });
+  assert.ok(c.shares > 2000 && Math.abs(d.shares - 2000) < 1e-6);
+  // le plan finit avec environ 2 000 k actions
+  const plan = await O.planYears(X.build('C'), E, 3, { mode: 'robust', futureW: .5, penW: .35, trust: true, exploit: 0 });
+  const sh = plan.rows[2].r.shares;
+  assert.ok(Math.abs(sh - 2000) <= 60, 'actions finales proches de 2000 k: ' + sh.toFixed(0));
+  console.log('war-room elite finance: ok, actions finales', sh.toFixed(0), 'k');
+}

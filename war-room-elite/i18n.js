@@ -126,6 +126,9 @@
     ['aucun produit sur', 'no product on'], ['Segment libre : montez stock, capacité et budgets sur', 'Open segment: raise inventory, capacity and budgets on'], ['pour capter la part qu\'ils laissent.', 'to capture the share they leave.'],
     ['emprunt d\'urgence', 'emergency loan'], ['levier', 'leverage'], ['trésorerie', 'cash'], ['Trésorerie sous tension : attendez des coupes en R&D et marketing et des prix bradés ; prenez leur place sur leurs segments forts.', 'Cash under pressure: expect R&D and marketing cuts and discounted prices; take their place in their strong segments.'],
     ['résultat', 'result'], ['Équipe en perte : elle devra rééquilibrer ses dépenses au prochain round.', 'Team at a loss: it will have to rebalance its spending next round.'], ['Équipe en perte', 'Team at a loss'],
+
+    // v5: dette long terme, rachat d'actions
+    ['Dette long terme : émission (obligations)', 'Long-term debt: issuance (bonds)'], ['Dette long terme : remboursement', 'Long-term debt: repayment'], ['Rachat d\'actions de', 'Share buyback of'], ['Rachat d\'actions', 'Share buyback'], ['Remboursement dette long terme', 'Long-term debt repayment'], ['Remboursement de dette long terme de', 'Long-term debt repayment of'], ['Dette long terme fin d\'année', 'Year-end long-term debt'], ['Actions en circulation en fin d\'année :', 'Shares outstanding at year-end:'], ['Actions en circulation', 'Shares outstanding'], ['Actions (k)', 'Shares (k)'], ['Objectif de fin de partie :', 'End-of-game target:'], ['Objectif', 'Target'], ['(objectif', '(target'], ['en fin de partie).', 'at end of game).'], [': plafond de', ': cap of'],
   ];
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const L = '\\p{L}\\p{N}';

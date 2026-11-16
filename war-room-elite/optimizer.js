@@ -18,7 +18,9 @@
       num(n + '.auto', 'Automatisation', n, b.auto, tr ? Math.min(10, b.auto + 4) : 10, .5, () => d().auto, v => { d().auto = v; }, '');
       num(n + '.capAdd', 'Capacité ajoutée', n, 0, tr ? 600 : 1000, 50, () => d().capAdd, v => { d().capAdd = v; }, ' k');
     }
-    num('F.bond', 'Obligations', 'Finance', 0, L.bond, 100, () => s.F.bond, v => { s.F.bond = v; }, ' k$');
+    num('F.bond', 'Dette long terme : émission (obligations)', 'Finance', 0, L.bond, 100, () => s.F.bond, v => { s.F.bond = v; }, ' k$');
+    num('F.retire', 'Dette long terme : remboursement', 'Finance', 0, L.retireDebt, 100, () => s.F.retire || 0, v => { s.F.retire = v; }, ' k$');
+    num('F.buyback', 'Rachat d\'actions', 'Finance', 0, L.buyback, 100, () => s.F.buyback || 0, v => { s.F.buyback = v; }, ' k$');
     num('F.curDebt', 'Dette courte', 'Finance', 0, L.curDebt, 100, () => s.F.curDebt, v => { s.F.curDebt = v; }, ' k$');
     num('F.stock', 'Actions émises', 'Finance', 0, L.stock, 100, () => s.F.stock, v => { s.F.stock = v; }, ' k$');
     num('F.div', 'Dividende par action', 'Finance', 0, 2, .25, () => s.F.div, v => { s.F.div = v; }, ' $');
@@ -35,16 +37,17 @@
 
   // point de depart qui franchit d'emblee les seuils Emissions et Dechets (seuils: reglages coordonnes)
   function compliance(s) { const c = X.clone(s); c.F.supplier = 'ecolux'; c.F.energy = Math.max(100, c.F.energy || 0); X.PRODS.forEach(n => { c.D[n].rec = 40; }); return c; }
-  function context(E, mode, futureW, trust, penW, look, exploit) {
+  function context(E, mode, futureW, trust, penW, look, exploit, sharePen) {
     const ex = exploit == null ? .65 : exploit, intel = X.hasIntel() && ex > 0;
     const sc = mode === 'base' ? [{ w: 1, comp: intel ? 'intel_trend' : 'standard', shock: 0 }] : intel ? [{ w: .45 * ex, comp: 'intel_trend', shock: 0 }, { w: .30 * ex, comp: 'intel_persist', shock: 0 }, { w: .25 * ex, comp: 'intel_correct', shock: 0 }, { w: .14 * (1 - ex) / .35, comp: 'standard', shock: -.25 }, { w: .105 * (1 - ex) / .35, comp: 'agressif', shock: 0 }, { w: .105 * (1 - ex) / .35, comp: 'adaptatif', shock: 0 }] : [{ w: .35, comp: 'standard', shock: 0 }, { w: .2, comp: 'standard', shock: -.25 }, { w: .2, comp: 'agressif', shock: 0 }, { w: .25, comp: 'adaptatif', shock: 0 }];
-    return { E, intelOn: intel, mode: mode || 'robust', scen: sc, futureW: futureW == null ? .5 : futureW, trust: trust !== false, penW: penW == null ? .35 : penW, look: look ? 1 : 0, lookW: .6, esgKnown: X.esgKnown() };
+    return { E, intelOn: intel, mode: mode || 'robust', scen: sc, futureW: futureW == null ? .5 : futureW, trust: trust !== false, penW: penW == null ? .35 : penW, look: look ? 1 : 0, lookW: .6, sharePen: sharePen || 0, esgKnown: X.esgKnown() };
   }
   function value(r, ctx, F) {
     const ru = X.rules(r, ctx.E, F), lim = X.LIM.capex;
-    return { v: r.marketCap - ctx.penW * ru.pen - 3 * r.eloan / 1000 - (r.capex > lim ? 3 * (r.capex - lim) / 1000 : 0) - (r.alerts.some(a => a.lv === 'bad' && /200 %/.test(a.t)) ? 50 : 0) + (ctx.look ? 0 : ctx.futureW * r.labSave * .65 * 5 / 1000), ru };
+    return { v: r.marketCap - ctx.penW * ru.pen - 3 * r.eloan / 1000 - (r.capex > lim ? 3 * (r.capex - lim) / 1000 : 0) - (r.alerts.some(a => a.lv === 'bad' && /200 %/.test(a.t)) ? 50 : 0) + (ctx.look ? 0 : ctx.futureW * r.labSave * .65 * 5 / 1000) - (ctx.sharePen ? ctx.sharePen * Math.abs(r.shares - X.getData().TARGET.shares) : 0), ru };
   }
   function evalState(s, ctx) {
+    { const ns = (s.F.stock || 0) - (s.F.buyback || 0), nb = (s.F.bond || 0) - (s.F.retire || 0); s.F.stock = Math.max(0, ns); s.F.buyback = Math.max(0, -ns); s.F.bond = Math.max(0, nb); s.F.retire = Math.max(0, -nb); }
     X.fitProduction(s.D, s.F, 'standard', 1);
     let J = 0, worst = Infinity; const det = [];
     for (const q of ctx.scen) { const r = X.simulate(s.D, s.F, { comp: q.comp, shock: q.shock }), x = value(r, ctx, s.F); let v = x.v;
@@ -101,7 +104,7 @@
   async function planYears(startS, E, years, o, progress) {
     const prev = X.getData(), rows = []; let data = X.clone(prev);
     for (let y = 1; y <= years; y++) {
-      const last = y === years, pw = Math.min(1, o.penW + (1 - o.penW) * (y - 1) / Math.max(1, years - 1)), ctx = context(E, o.mode, o.futureW, o.trust, last ? 1 : pw, last ? 0 : 1, o.exploit);
+      const last = y === years, pw = Math.min(1, o.penW + (1 - o.penW) * (y - 1) / Math.max(1, years - 1)), sp = .2 * y / years, ctx = context(E, o.mode, o.futureW, o.trust, last ? 1 : pw, last ? 0 : 1, o.exploit, sp);
       ctx.basic = y > 1; let res, r, ru, nx, base;
       X.activate(data);
       try { res = await optimize(y === 1 ? X.clone(startS) : X.zero(), ctx); r = X.simulate(res.state.D, res.state.F, { comp: cen(), shock: 0 }); ru = X.rules(r, E, res.state.F); nx = X.roll(res.state.D, res.state.F, r); base = X.clone(X.getData()); } finally { X.activate(prev); }
