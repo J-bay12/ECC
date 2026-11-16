@@ -1,0 +1,258 @@
+# Index des prompts (prompts.chat, for_devs)
+
+Source: `_external_tools/prompts.chat/prompts.csv` (2999 prompts, 252 pour devs).
+Recherche: `node scripts/super-claude/prompt-lookup.js <mots> [--devs] [--limit N]`.
+Ne jamais charger le CSV en entier.
+
+- .NET Web API taste
+- API Client SDK taste
+- API Design Expert Agent Role
+- API Design taste
+- API Rate Limiting taste
+- API Tester Agent Role
+- Accessibility Auditor
+- Act as a Senior Codebase Auditor & Tech Debt Refactorer
+- Analyze code scanning security issues and dependency updates if vulnerable
+- Angular App taste
+- Ansible Playbook taste
+- Any Programming Language to Python Converter
+- Architect Guide for Programmers
+- Ascii Artist
+- Astro Content Site taste
+- Authentication taste
+- Automated Text Typing Every 5 Minutes with Python
+- Background Jobs taste
+- Backup & Restore Agent Role
+- Browser Extension taste
+- Bug Discovery Code Assistant
+- Bug Report Normalizer and Triage Card (JSON)
+- Bug Risk Analyst Agent Role
+- Build a UI Library for ESP32
+- CSS taste
+- Caching Architect Agent Role
+- Claude Web Page Redesign Planning Prompt
+- Cloudflare Worker taste
+- Code Formatter Agent Role
+- Code Recon
+- Code Review Agent
+- Code Review Agent Role
+- Code Review Assistant
+- Code Review Assistant for Bug Detection
+- Code Review Expert
+- Code Review Professional
+- Code Review Specialist
+- Code Review Specialist 2
+- Code Review Specialist 3
+- Code Review taste
+- Code Reviewer
+- Code Reviewer Agent Role
+- Code Translator — Idiomatic, Version-Aware & Production-Ready
+- Code Translator: Any Language to Any Language
+- Coding Structure with MVC and SOLID Principles
+- Commit Message Preparation
+- Comprehensive Code Review Expert
+- Continue Coding Assistant
+- Conventional Commit Message Generator
+- Core Systems Architect: Upgrading the TITAN OMEGA Edge Dashboard
+- Cyber Security Specialist
+- Cyber-Pulse: 3D Neon Particle Swarm
+- DAX Terminal
+- DOE Framework - Directions Template
+- Data Pipeline taste
+- Data Scientist
+- Data Transformer
+- Data Visualization taste
+- Database Architect Agent Role
+- Database Migrations taste
+- Database Schema Design taste
+- Deep Copy Functionality
+- Dependency Management taste
+- Dependency Manager Agent Role
+- Design System taste
+- DevOps Automator Agent Role
+- Develop a creative dice generator called “IdeaDice”.
+- Developer Relations Consultant
+- Developer Work Analysis from Git Diff and Commit Message
+- Devops Engineer
+- Diagram Generator
+- Diff Security Auditor Agent Role
+- Django Unit Test Generator for Viewsets
+- Django Web App taste
+- Dockerfile and CI taste
+- Documentation Maintainer Agent Role
+- ESP32 UI Library Development
+- Electron App taste
+- Elite Software Engineer & Product Architect Prompt
+- Embedded Firmware taste
+- Environment Configuration Agent Role
+- Error Handler Agent Role
+- Error Handling taste
+- Ethereum Developer
+- Event-Driven Architecture taste
+- Excel Sheet
+- FastAPI Service taste
+- Feature Flag Rollout taste
+- File Analysis API with Node.js and Express
+- Fix LaTeX dollars
+- Flutter App taste
+- Full-Text Search taste
+- Fullstack Software Developer
+- Functional Analyst
+- Git Repository Analysis and Knowledge Base Construction
+- Git Workflow Expert Agent Role
+- Git Workflow taste
+- GitHub Actions taste
+- GitHub Expert
+- GitHub SSH Setup for Students (Existing Repository, Clone & Push Ready)
+- Go Service taste
+- GraphQL API taste
+- Gravity Shift: Low-Poly Physics Platformer
+- Grid-Based Match-3 Chain Reaction Logic
+- Hallucination Vulnerability Prompt Checker
+- Helm Chart taste
+- High-Velocity Dogfight
+- IT Architect
+- IT Expert
+- Incident Response taste
+- Internationalization taste
+- JavaScript Console
+- Jetpack Compose Android App taste
+- Kafka Streaming taste
+- Knowledgeable Software Development Mentor
+- Kubernetes taste
+- LLM Application taste
+- LLM Researcher
+- Laravel App taste
+- Large Language Models Security Specialist
+- Legal Document Generator Agent Role
+- Linux Script Developer
+- Linux Server Hardening taste
+- Linux Terminal
+- Load Testing taste
+- Logic Builder Tool
+- Machine Learning Engineer
+- Machine Learning Experiment taste
+- Minimax Music & Lyrics Generation
+- Monorepo taste
+- Neovim Config taste
+- Next.js
+- Next.js App Router taste
+- Next.js App taste
+- Nginx Config taste
+- Nix Dev Environment taste
+- Observability taste
+- Open Source Release Checklist Builder (YAML)
+- Optimization Auditor Agent Role
+- Optimize Large Data Reading in Code
+- PHP Interpreter
+- PRD
+- Pandas Data Analysis taste
+- Password Generator
+- Performance Tuning Agent Role
+- Phoenix App taste
+- Playwright E2E taste
+- Post-Implementation Audit Agent Role
+- PostgreSQL taste
+- Potato Critic
+- Predictive Eye Tracking Heatmap Generator
+- Prisma ORM taste
+- Product Planner Agent Role
+- Prompt Enhancer
+- Pytest taste
+- Python Auto Typer with Customizable Delay
+- Python Code Generator — Clean, Optimized & Production-Ready
+- Python Code Performance & Quality Enhancer
+- Python Interpreter
+- Python Packaging taste
+- Python Security Vulnerability Auditor (OWASP-Mapped & Production-Hardened)
+- Python Type Hints taste
+- Python Unit Test Generator — Comprehensive, Coverage-Mapped & Production-Ready
+- Quality Engineering Agent Role
+- R Programming Interpreter
+- Rails App taste
+- Rapid Prototyper Agent Role
+- React Native App taste
+- React State Management taste
+- Realtime WebSocket taste
+- Recreate an Image as an HTML and CSS Project
+- Redis Caching taste
+- Refactoring Expert Agent Role
+- RegEx Generator
+- Repository Indexer Agent Role
+- Repository Workflow Editor Agent Role
+- Reverse Prompt Engineer
+- Root Cause Analysis Agent Role
+- Rust CLI taste
+- SEO Prompt
+- SQL Query Builder & Optimiser
+- SQL Terminal
+- SQLite taste
+- SVG designer
+- Scientific Data Visualizer
+- Secrets Management taste
+- Senior AI & Data Engineering Meta-Prompt Generator
+- Senior Code Reviewer (severity-ranked)
+- Senior Frontend Developer
+- Senior Java Backend Engineer Expert
+- Sentry Bug Fixer
+- Serverless Functions taste
+- Setup and Bootstrap a Flutter Development Environment
+- Shell Script Agent Role
+- Shell Scripting taste
+- Small Functional Analyst mode
+- Smart Domain Name Generator
+- Software Quality Assurance Tester
+- Solidity Smart Contract taste
+- Solr Search Engine
+- Spring Boot Service taste
+- StackOverflow Post
+- SvelteKit App taste
+- SwiftUI iOS App taste
+- System Architect Agent Role
+- Tailwind CSS taste
+- Tauri Desktop App taste
+- Teacher of React.js
+- Tech Reviewer
+- Tech Troubleshooter
+- Tech Writer
+- Technical Documentation taste
+- Technology Transferer
+- Terraform taste
+- Test Analyzer Agent Role
+- Test Automation Expert
+- Test Engineer Agent Role
+- Test Python Algorithmic Trading Project
+- Testing taste
+- Tokio Async Rust taste
+- Tool Evaluator Agent Role
+- Top Programming Expert
+- TypeScript Library taste
+- TypeScript Type Expert Agent Role
+- UX/UI Developer
+- Ultra-micro Functional Analyst Prompt
+- Unit Tester Assistant
+- Unity Game Project taste
+- Universal LLM Operating Guidelines
+- Vector-Based Space Combat System
+- Vibe Coding Master
+- Vibe Coding with Commands and Skills
+- Visual Media Analysis Expert Agent Role
+- Vite Frontend Tooling taste
+- Vue App taste
+- Vulnerability Auditor Agent Role
+- Web Accessibility taste
+- Web Browser
+- Web Design Consultant
+- Web Performance taste
+- Web Security taste
+- WebAssembly Module taste
+- Webhook Integration taste
+- aa/cli taste
+- copilot
+- create a drag-and-drop experience using UniApp
+- dbt Analytics Project taste
+- gRPC Service taste
+- prompts.chat taste
+- security fixes
+- security fixes cves
+- ⚙️ PromptForge

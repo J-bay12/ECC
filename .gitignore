@@ -108,3 +108,9 @@ ecc2/target/
 assets/images/security/badrudi-exploit.mp4
 
 .aider*
+
+# Super Claude
+graphify-out/
+.venv/
+_external_tools/graphify/*.egg-info/
+__pycache__/
