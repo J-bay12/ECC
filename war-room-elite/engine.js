@@ -26,17 +26,20 @@
     PEN: [0, 20, 50, 100, 150], WAGE: 1.1025, STARTE: { community: 45.6, employee: 2.4 },
     ESGFX: { prog: [0, 0, 0, 0, 0], train: 0, rr: 0, leader: 0 }, // effets mesures sur Community/Employee (inconnus par defaut)
     compObs: null,
+    INTEL: { history: [], demo: false }, // equipes adverses: [{round, teams:{Nom:{fin:{}, products:{p:{seg,pfmn,size,mtbf,age,price,promo,sales,aware,inv,sold}}}}}]
   };
   const clone = o => JSON.parse(JSON.stringify(o));
-  let DATA, SEG, BASE, R0, LIM, SUP, CB, PROG, PEN, WAGE, PRODS, SEGS;
+  let DATA, SEG, BASE, R0, LIM, SUP, CB, PROG, PEN, WAGE, PRODS, SEGS, CBASE;
+  function bind() { ({ SEG, BASE, R0, LIM, SUP, CB, PROG, PEN, WAGE } = DATA); CBASE = DATA.CBASE || DATA.BASE; PRODS = Object.keys(BASE); SEGS = Object.keys(SEG); }
   function setData(patch) {
     const base = DATA ? DATA : clone(DEFAULT_DATA), next = clone(base);
     const merge = (t, s) => { for (const k of Object.keys(s || {})) { if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k]) && t[k] && typeof t[k] === 'object' && !Array.isArray(t[k])) merge(t[k], s[k]); else t[k] = clone(s[k]); } };
-    merge(next, patch || {}); DATA = next;
-    ({ SEG, BASE, R0, LIM, SUP, CB, PROG, PEN, WAGE } = DATA); PRODS = Object.keys(BASE); SEGS = Object.keys(SEG);
+    merge(next, patch || {}); if ((patch && patch.BASE && !patch.CBASE) || !next.CBASE) next.CBASE = clone(next.BASE); DATA = next; bind();
     return DATA;
   }
   function resetData() { DATA = null; return setData({}); }
+  function activate(d) { const prev = DATA; DATA = d; bind(); return prev; }
+  function withData(d, fn) { const prev = activate(d); try { return fn(); } finally { activate(prev); } }
   setData({});
 
   const laborAt = a => 11.87 - 1.10 * a;
@@ -44,12 +47,12 @@
   const awareGain = x => .5 * (1 - Math.exp(-x / 1100)), accGain = x => .35 * (1 - Math.exp(-x / 2000));
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
-  function defaultDecisions() { const D = {}; for (const n of PRODS) { const b = BASE[n]; D[n] = { pfmn: b.pfmn, size: b.size, mtbf: b.mtbf, price: b.price, promo: b.promo, sales: b.sales, prod: Math.round(b.sold * 1.1 / 10) * 10, auto: b.auto, capAdd: 0, rev: null, rec: 0 }; } return D; }
+  function defaultDecisions(B) { B = B || BASE; const D = {}; for (const n of PRODS) { const b = B[n]; D[n] = { pfmn: b.pfmn, size: b.size, mtbf: b.mtbf, price: b.price, promo: b.promo, sales: b.sales, prod: Math.round(b.sold * 1.1 / 10) * 10, auto: b.auto, capAdd: 0, rev: null, rec: 0 }; } return D; }
   const defaultFin = () => ({ bond: 0, stock: 0, div: 0, curDebt: 0, supplier: 'corecraft', energy: 0, cb: 'competitive', train: 0, rr: 0, programs: [] });
 
   function competitor(mode) {
-    const D = defaultDecisions(), o = DATA.compObs;
-    for (const n of PRODS) { const b = BASE[n], s = SEG[b.seg], d = D[n];
+    const D = defaultDecisions(CBASE), o = DATA.compObs;
+    for (const n of PRODS) { const b = CBASE[n], s = SEG[b.seg], d = D[n];
       if (mode === 'observe' && o) { d.pfmn = +(b.pfmn + s.drift[0] * (o.drift == null ? .8 : o.drift)).toFixed(1); d.size = +(b.size + s.drift[1] * (o.drift == null ? .8 : o.drift)).toFixed(1); d.rev = o.rev || 8; d.price = b.price + (o.priceDelta || 0); d.promo = o.promo || b.promo; d.sales = o.sales || b.sales; continue; }
       if (mode !== 'passif' && n !== 'Acre') { d.pfmn = +(b.pfmn + s.drift[0] * .8).toFixed(1); d.size = +(b.size + s.drift[1] * .8).toFixed(1); d.rev = mode === 'agressif' ? 6 : 8; }
       if (mode === 'standard') { d.price = b.price - .5; d.promo = 1400; d.sales = 1400; }
@@ -74,24 +77,52 @@
     return (s.w.age * ageS + s.w.price * pr + s.w.pos * pos + s.w.mtbf * ms) * cut;
   }
 
-  function firmScores(D) {
-    const acc = {}; for (const sg of SEGS) { const bud = PRODS.filter(n => BASE[n].seg === sg).reduce((a, n) => a + D[n].sales, 0); acc[sg] = clamp(SEG[sg].acc * .67 + accGain(bud), 0, 1); }
+  function firmScores(D, B) {
+    B = B || BASE; const P = Object.keys(B);
+    const acc = {}; for (const sg of SEGS) { const bud = P.filter(n => B[n].seg === sg).reduce((a, n) => a + D[n].sales, 0); acc[sg] = clamp(SEG[sg].acc * .67 + accGain(bud), 0, 1); }
     const out = {}, meta = {};
-    for (const n of PRODS) { const b = BASE[n], d = D[n], moved = Math.hypot(d.pfmn - b.pfmn, d.size - b.size) > .01;
+    for (const n of P) { const b = B[n], d = D[n], moved = Math.hypot(d.pfmn - b.pfmn, d.size - b.size) > .01;
       const est = rdMonths(b, d) + .65 * (d.rec || 0) / 10, rev = est === 0 ? 0 : (d.rev || Math.ceil(est)), aware = clamp(b.aware * .67 + awareGain(d.promo), 0, 1);
       out[n] = {}; meta[n] = { rev, est, aware, moved };
       for (const sg of SEGS) { let sum = 0; for (let m = 1; m <= 12; m++) sum += scoreAt(b, d, sg, m, rev, moved); out[n][sg] = sum / 12 * (1 + aware) / 2 * (1 + acc[sg]) / 2; }
     } return { scores: out, meta, acc };
   }
 
+
+  const hasIntel = () => !!(DATA.INTEL && DATA.INTEL.history && DATA.INTEL.history.length && Object.keys(DATA.INTEL.history[DATA.INTEL.history.length - 1].teams || {}).length);
+  function cache() { if (!DATA.__c) Object.defineProperty(DATA, '__c', { value: {}, enumerable: false, writable: true }); return DATA.__c; }
+  function intelState(mode) {
+    const H = DATA.INTEL.history, cur = H[H.length - 1], prev = H.length > 1 ? H[H.length - 2] : null, B = {}, D = {};
+    for (const t of Object.keys(cur.teams)) { B[t] = {}; D[t] = {}; const P = cur.teams[t].products || {};
+      for (const n of Object.keys(P)) { const p = Object.assign({ auto: 3, age: 2, aware: .45, mtbf: 15000, promo: 800, sales: 800, inv: 0, cap: 1000 }, P[n]); B[t][n] = p; const q = prev && prev.teams[t] && prev.teams[t].products && prev.teams[t].products[n], s = SEG[p.seg] || SEG[SEGS[0]];
+        const d = { pfmn: p.pfmn, size: p.size, mtbf: p.mtbf, price: p.price, promo: p.promo, sales: p.sales, prod: Math.max(10, p.sold || 100), auto: p.auto, capAdd: 0, rev: null, rec: 0 };
+        if (mode === 'intel_trend') { if (q) { d.pfmn += (p.pfmn - q.pfmn) * .8; d.size += (p.size - q.size) * .8; d.price = clamp(p.price + clamp(p.price - q.price, -2, 2), 5, 80); d.promo = Math.max(0, p.promo + (p.promo - q.promo) * .5); d.sales = Math.max(0, p.sales + (p.sales - q.sales) * .5); d.mtbf = p.mtbf + (p.mtbf - q.mtbf) * .5; } else { d.pfmn += s.drift[0] * .8; d.size += s.drift[1] * .8; } d.rev = 8; }
+        else if (mode === 'intel_correct') { d.pfmn = s.ideal[0] + s.drift[0] * .5; d.size = s.ideal[1] + s.drift[1] * .5; d.price = clamp(p.price, s.price[0] - .5, s.price[1] - .5); d.mtbf = Math.max(p.mtbf, s.mtbf[0]); d.promo = Math.max(p.promo, 1200); d.sales = Math.max(p.sales, 1200); d.rev = 8; }
+        D[t][n] = d; } }
+    return { B, D };
+  }
+  function sumSeg(scores, mult) { const o = {}; for (const sg of SEGS) { let t = 0; for (const n of Object.keys(scores)) t += scores[n][sg]; o[sg] = t * mult; } return o; }
+  function compSums(mode) {
+    if (/^intel_/.test(mode) && !hasIntel()) mode = 'standard';
+    const c = cache(); if (c[mode]) return c[mode]; let out;
+    if (/^intel_/.test(mode)) { const I = intelState(mode), th = {}; SEGS.forEach(sg => { th[sg] = 0; }); for (const t of Object.keys(I.D)) { const fs = firmScores(I.D[t], I.B[t]); for (const n of Object.keys(fs.scores)) for (const sg of SEGS) th[sg] += fs.scores[n][sg]; } out = { th, cd: null, teamD: I.D }; }
+    else { const cd = competitor(mode); out = { th: sumSeg(firmScores(cd, CBASE).scores, 4), cd, teamD: null }; }
+    c[mode] = out; return out;
+  }
+  function segmentTotals(D, comp) { const me = firmScores(D), th = compSums(comp || 'standard').th, o = {}; for (const sg of SEGS) { let m = 0; for (const n of PRODS) m += me.scores[n][sg]; o[sg] = { mine: m, theirs: th[sg], demand: SEG[sg].size * (1 + SEG[sg].g) }; } return o; }
+
   function simulate(D, F, opts) {
     opts = opts || {}; const shock = opts.shock || 0, fmt = x => Math.round(x).toLocaleString(root.__LOC || 'fr-FR');
-    const me = firmScores(D), cp = firmScores(competitor(opts.comp || 'standard')), sup = SUP[F.supplier || 'corecraft'], cb = CB[F.cb || 'competitive'];
+    const me = firmScores(D);
+    let cd = null, teamD = null, thSeg;
+    if (opts.comp === 'adaptatif') { const c0 = compSums('standard'), sh = {}; for (const sg of SEGS) { let mi = 0; for (const n of PRODS) mi += me.scores[n][sg]; sh[sg] = mi / ((mi + c0.th[sg]) || 1); } cd = competitor('standard'); for (const n of PRODS) { const dl = clamp((sh[BASE[n].seg] - .2) / .2, 0, 1); cd[n].price -= 1.5 * dl; cd[n].promo += 800 * dl; cd[n].sales += 800 * dl; } thSeg = sumSeg(firmScores(cd, CBASE).scores, 4); }
+    else { const cs = compSums(opts.comp || 'standard'); thSeg = cs.th; cd = cs.cd; teamD = cs.teamD; }
+    const sup = SUP[F.supplier || 'corecraft'], cb = CB[F.cb || 'competitive'];
     for (const n of PRODS) { const rv = me.meta[n].rev, fr = rv > 0 && rv <= 12 ? (12 - rv) / 12 : 0; for (const sg of SEGS) me.scores[n][sg] *= (1 + sup.d) * (1 + (D[n].rec || 0) / 1000 * fr); }
     const res = { products: {}, segments: {}, alerts: [] }, demand = {}; PRODS.forEach(n => demand[n] = 0);
-    for (const sg of SEGS) { const s = SEG[sg], tot = s.size * (1 + s.g) * (1 + shock); let mine = 0, theirs = 0;
-      for (const n of PRODS) { mine += me.scores[n][sg]; theirs += cp.scores[n][sg]; }
-      const all = mine + 4 * theirs; res.segments[sg] = { demand: tot, share: all ? mine / all : 0, acc: me.acc[sg], units: 0 };
+    for (const sg of SEGS) { const s = SEG[sg], tot = s.size * (1 + s.g) * (1 + shock); let mine = 0;
+      for (const n of PRODS) mine += me.scores[n][sg];
+      const all = mine + thSeg[sg]; res.segments[sg] = { demand: tot, share: all ? mine / all : 0, acc: me.acc[sg], units: 0 };
       for (const n of PRODS) demand[n] += all ? tot * me.scores[n][sg] / all : 0; }
     let rev = 0, varc = 0, carry = 0, invVal = 0, prodCost = 0, mkt = 0, rd = 0, capex = 0, units = 0, labSave = 0;
     for (const n of PRODS) { const b = BASE[n], d = D[n], m = me.meta[n];
@@ -113,7 +144,7 @@
     const ebit = rev - varc - carry - depr - rd - mkt - admin - esg, interest = R0.interest + F.bond * LIM.bondRate + F.curDebt * LIM.debtRate, fees = F.bond * LIM.issueFee + F.stock * LIM.issueFee;
     const ebt = ebit - interest - fees, tax = ebt > 0 ? ebt * LIM.tax : 0, ps = ebt > 0 ? (ebt - tax) * .02 : 0, ni = ebt - tax - ps;
     const shares = R0.shares + F.stock / R0.price, divTotal = F.div * shares, ar = rev * 30 / 365, ap = prodCost * 30 / 365;
-    let cash = R0.cash + ni + depr - (ar - R0.ar) + (ap - R0.ap) - (invVal - R0.inv) - capex + F.bond + F.stock + F.curDebt - divTotal;
+    let cash = R0.cash + ni + depr - (ar - R0.ar) + (ap - R0.ap) - (invVal - R0.inv) - capex + F.bond + F.stock + F.curDebt - divTotal - (R0.repay || 0);
     const eloan = cash < 0 ? -cash : 0; if (eloan) cash = 0;
     const equity = R0.equity + ni + F.stock - divTotal, fixed = R0.fixed + capex - depr, assets = cash + ar + invVal + fixed, liab = ap + R0.ltd + F.bond + F.curDebt + eloan;
     const eps = ni / shares, bv = equity / shares; let price = bv + 5 * eps; price *= 1 - Math.min(.4, eloan / 40000); price = Math.max(1, bv * .5, price);
@@ -121,10 +152,31 @@
     if (eloan) res.alerts.unshift({ lv: 'bad', t: `Emprunt d'urgence de ${fmt(eloan)} k$ : la trésorerie de fin d'année est négative.` });
     if (capex > LIM.capex) res.alerts.push({ lv: 'bad', t: `Investissement usine de ${fmt(capex)} k$ : Capsim plafonne à ${fmt(LIM.capex)} k$.` });
     const totDemand = SEGS.reduce((a, s) => a + res.segments[s].demand, 0);
-    Object.assign(res, { rev, varc, carry, cmPct: (rev - varc - carry) / rev, depr, rd, mkt, admin, esg, ebit, interest, fees, tax, ps, ni, cash, eloan, capex, equity, assets, liab, eps, bv, price, rating, shares, marketCap: price * shares / 1000, share: units / totDemand, units, ros: ni / rev, roe: ni / equity, roa: ni / assets, leverage: assets / equity, invVal, divTotal, acc: me.acc, labSave,
+    Object.assign(res, { rev, varc, carry, cmPct: (rev - varc - carry) / rev, depr, rd, mkt, admin, esg, ebit, interest, fees, tax, ps, ni, cash, eloan, capex, equity, assets, liab, eps, bv, price, rating, shares, apNew: ap, fixedNew: fixed, compD: cd, teamD, marketCap: price * shares / 1000, share: units / totDemand, units, ros: ni / rev, roe: ni / equity, roa: ni / assets, leverage: assets / equity, invVal, divTotal, acc: me.acc, labSave,
       emissions: 100 * (1 + sup.em) * (1 - .10 * (F.energy || 0) / 2000), waste: PRODS.reduce((a, n) => a + 10 * (1 - .05 * (me.meta[n].rev > 0 && me.meta[n].rev <= 12 ? (D[n].rec || 0) : 0) / 10), 0) / PRODS.length * (1 + sup.w), progCost, trainCost });
     return res;
   }
+
+
+  /* Passage a l'annee suivante: BASE, R0, segments et base des concurrents mis a jour depuis les resultats. */
+  function roll(D, F, r) {
+    const nx = clone(DATA);
+    for (const n of PRODS) {
+      const b = BASE[n], d = D[n], p = r.products[n], nb = nx.BASE[n], moved = Math.hypot(d.pfmn - b.pfmn, d.size - b.size) > .01, rr = (p.rev > 0 ? Math.min(12, p.rev) : 0) / 12;
+      nb.age = moved ? (b.age + rr) / 2 + (1 - rr) : b.age + 1;
+      if (p.est > 0) { nb.pfmn = d.pfmn; nb.size = d.size; nb.mtbf = d.mtbf; nb.mat = p.matNew / (1 + .0123 * (d.rec || 0) / 10); }
+      nb.price = d.price; nb.promo = d.promo; nb.sales = d.sales; nb.inv = Math.max(0, p.end); nb.cap = b.cap + Math.max(0, d.capAdd || 0); nb.auto = Math.max(b.auto, d.auto); nb.aware = p.aware; nb.sold = p.sold;
+    }
+    Object.assign(nx.R0, { cash: r.cash, ar: r.rev * 30 / 365, inv: r.invVal, fixed: r.fixedNew, ap: r.apNew, ltd: DATA.R0.ltd + F.bond, equity: r.equity, shares: r.shares, price: r.price, sales: r.rev, profit: r.ni, depr: r.depr, interest: DATA.R0.interest + F.bond * LIM.bondRate, eps: r.eps, bv: r.bv, ebit: r.ebit, cmPct: r.cmPct, ros: r.ros, roe: r.roe, units: r.units, repay: F.curDebt });
+    for (const sg of SEGS) { const s = nx.SEG[sg]; s.size *= 1 + s.g; s.ideal = [s.ideal[0] + s.drift[0], s.ideal[1] + s.drift[1]]; }
+    if (r.compD) for (const n of PRODS) { const cb = CBASE[n], d = r.compD[n], nb = nx.CBASE[n], mv = Math.hypot(d.pfmn - cb.pfmn, d.size - cb.size) > .01;
+      Object.assign(nb, { pfmn: d.pfmn, size: d.size, mtbf: d.mtbf, price: d.price, promo: d.promo, sales: d.sales, age: mv ? (cb.age + .5) / 2 + .5 : cb.age + 1, aware: clamp(cb.aware * .67 + awareGain(d.promo), 0, 1) }); }
+    if (r.teamD && hasIntel()) { const H = DATA.INTEL.history, cur = H[H.length - 1], ent = { round: (cur.round || 0) + 1, teams: {} };
+      for (const t of Object.keys(cur.teams)) { ent.teams[t] = { fin: clone(cur.teams[t].fin || {}), products: {} }; for (const n of Object.keys(cur.teams[t].products)) { const p = cur.teams[t].products[n], d = r.teamD[t][n], mv = Math.hypot(d.pfmn - p.pfmn, d.size - p.size) > .01; ent.teams[t].products[n] = Object.assign({}, p, { pfmn: d.pfmn, size: d.size, mtbf: d.mtbf, price: d.price, promo: d.promo, sales: d.sales, age: mv ? (p.age + .5) / 2 + .5 : p.age + 1, aware: clamp((p.aware == null ? .45 : p.aware) * .67 + awareGain(d.promo), 0, 1) }); } }
+      nx.INTEL.history = [cur, ent]; }
+    nx.round = (DATA.round || 1) + 1; nx.year = (DATA.year || 2027) + 1; return nx;
+  }
+  const hold = F => { const D = defaultDecisions(), G = Object.assign(defaultFin(), clone(F), { bond: 0, curDebt: 0, stock: 0, div: 0 }); return { D, F: G }; };
 
   function fitProduction(D, F, comp, iters) { for (let i = 0; i < (iters || 3); i++) { const r = simulate(D, F, { comp, shock: 0 }); for (const n of PRODS) D[n].prod = Math.min(BASE[n].cap * 2, Math.max(0, Math.round((r.products[n].demand * 1.1 - BASE[n].inv) / 10) * 10)); } }
   function effE(F, E) { const x = DATA.ESGFX, e = { community: E.community, employee: E.employee }; (F.programs || []).forEach(i => { e.community += x.prog[i] || 0; }); e.employee += (x.train || 0) * (F.train || 0) / 1000 + (x.rr || 0) * (F.rr || 0) / 1000 + (F.cb === 'leader' ? x.leader || 0 : 0); return e; }
@@ -154,7 +206,7 @@
   function build(key, strat) { const s = strat || STRATS[key], D = defaultDecisions(); for (const n of PRODS) Object.assign(D[n], (s.D || {})[n] || {}, { rec: s.rec || 0 }); const F = Object.assign(defaultFin(), clone(s.F)); fitProduction(D, F, 'standard'); return { D, F }; }
   function zero() { const D = defaultDecisions(), F = defaultFin(); fitProduction(D, F, 'standard'); return { D, F }; }
 
-  const api = { setData, resetData, getData: () => DATA, defaultDecisions, defaultFin, competitor, simulate, fitProduction, rules, effE, esgKnown, STRATS, build, zero, clone, clamp, laborAt,
+  const api = { hasIntel, segmentTotals, scoreAt, compSums, setData, resetData, activate, withData, roll, hold, getData: () => DATA, defaultDecisions, defaultFin, competitor, simulate, fitProduction, rules, effE, esgKnown, STRATS, build, zero, clone, clamp, laborAt,
     get PRODS() { return PRODS; }, get SEGS() { return SEGS; }, get BASE() { return BASE; }, get SEG() { return SEG; }, get R0() { return R0; }, get LIM() { return LIM; }, get SUP() { return SUP; }, get CB() { return CB; }, get PROG() { return PROG; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CAP = api;
 })(typeof window !== 'undefined' ? window : globalThis);
