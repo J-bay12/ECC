@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>War Room</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<nav aria-label="Navigation"><div class="logo"><i></i>WAR ROOM</div>
+<a href="#" aria-current="page">Tableau de bord</a><a href="#">Decisions</a><a href="#">Marche</a><a href="#">Finance</a></nav>
+<main>
+<header><div><h1>Tableau de bord</h1><p class="sub">Simulation perso, equipe A. Donnees fictives.</p></div>
+<div class="rounds" id="rounds" role="group" aria-label="Tour"></div></header>
+<section class="kpis" id="kpis" aria-label="Indicateurs"></section>
+<div class="grid">
+<section class="card"><h2>Chiffre d'affaires et profit</h2><div id="chart"></div></section>
+<section class="card"><h2>Decisions du prochain tour</h2>
+<div class="field"><label for="price">Prix</label><output id="o-price"></output><input id="price" type="range" min="20" max="60" value="38"></div>
+<div class="field"><label for="mkt">Marketing (k$)</label><output id="o-mkt"></output><input id="mkt" type="range" min="0" max="2000" step="50" value="800"></div>
+<div class="field"><label for="rd">R&amp;D (k$)</label><output id="o-rd"></output><input id="rd" type="range" min="0" max="1500" step="50" value="500"></div>
+<div class="proj"><span>Profit projete</span><b id="proj"></b></div></section>
+</div>
+<section class="card wide"><h2>Classement des equipes</h2>
+<table><thead><tr><th>Equipe</th><th>Part de marche</th><th>Profit (k$)</th><th>Score</th></tr></thead><tbody id="rank"></tbody></table></section>
+</main></div>
+<script src="app.js"></script>
+</body></html>
