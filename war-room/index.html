@@ -9,7 +9,7 @@
 <body>
 <div class="app">
 <nav aria-label="Navigation" id="nav"><div class="logo"><i></i>WAR ROOM</div>
-<a href="#dash" data-v="dash">Tableau de bord</a><a href="#dec" data-v="dec">Décisions</a><a href="#mkt" data-v="mkt">Concurrents</a><a href="#sim" data-v="sim">Simulations</a><a href="#data" data-v="data">Données</a></nav>
+<a href="#dash" data-v="dash">Tableau de bord</a><a href="#dec" data-v="dec">Décisions</a><a href="#mkt" data-v="mkt">Concurrents</a><a href="#sim" data-v="sim">Simulations</a><a href="#ai" data-v="ai">Analyse Claude</a><a href="#data" data-v="data">Données</a></nav>
 <main>
 <header><div><h1 id="title">Tableau de bord</h1><p class="sub" id="sub"></p></div>
 <div class="rounds" id="rounds" role="group" aria-label="Tour"></div></header>
@@ -54,8 +54,14 @@
 <label for="hz">Tours</label><select id="hz"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></div>
 <section class="card"><h2>Plan optimisé tour par tour</h2>
 <table><thead><tr><th>Tour</th><th>Prix</th><th>Marketing</th><th>R&amp;D</th><th>Profit moyen</th><th>P10 à P90</th><th>Part</th><th>Risque</th></tr></thead><tbody id="plan"></tbody></table></section>
+<section class="card wide"><h2>Robustesse du plan</h2><p class="sub">Compare les objectifs et teste la décision recommandée si les concurrents se durcissent ou se relâchent.</p><div class="row"><button class="btn" id="rob-go">Lancer le test</button><button class="btn ghost" id="dlplan">Exporter le plan</button></div><div id="rob"></div></section>
 <section class="card wide"><h2>Sensibilité et analyse du tour sélectionné</h2><div class="row ctl"><label for="pk">Tour</label><select id="pk"></select></div><ul class="advice" id="adv2"></ul></section>
 </div>
+
+<div id="v-ai" hidden>
+<section class="card"><h2>Matériel et consignes</h2><p class="sub">Règles du simulateur, brief du tour, rapports de marché : Claude les lit avec vos résultats chiffrés. Enregistré avec vos données.</p><textarea id="notes" rows="8" aria-label="Matériel"></textarea></section>
+<section class="card wide"><h2>Conseiller</h2><div class="row"><button class="btn" data-ai="plan">Analyser le plan</button><button class="btn ghost" data-ai="challenge">Challenger mes hypothèses</button><button class="btn ghost" data-ai="rivals">Anticiper les concurrents</button></div>
+<div class="row"><label for="q">Question</label><input id="q" size="42"><button class="btn" data-ai="ask">Demander</button></div><p class="sub" id="ai-status"></p><div class="ai-out" id="ai-out" aria-live="polite"></div></section></div>
 
 <div id="v-data" hidden>
 <section class="card"><h2>Vos données</h2>
@@ -63,6 +69,7 @@
 <textarea id="raw" rows="10" spellcheck="false" aria-label="Données"></textarea>
 <div class="row"><label for="me">Votre équipe</label><input id="me" size="6"><button class="btn" id="load">Appliquer</button><button class="btn ghost" id="demo">Exemple</button><button class="btn ghost" id="export">Exporter</button></div>
 <p class="sub" id="msg"></p></section>
+<section class="card wide"><h2>Ajouter le tour qui vient de se jouer</h2><p class="sub">Une ligne par équipe : team,price,mkt,rd,rev,profit,share (avec l'en-tête). Le modèle se recalibre.</p><textarea id="nr" rows="5" spellcheck="false" aria-label="Nouveau tour"></textarea><div class="row"><button class="btn" id="addround">Ajouter le tour</button><button class="btn ghost" id="dldata">Télécharger les données</button></div></section>
 <section class="card wide"><h2>Hypothèses du modèle</h2><div id="params"></div><p class="sub" id="fitinfo"></p></section>
 </div>
 </main></div>
