@@ -19,7 +19,7 @@ Sources integrees: claude-token-efficient, graphify, agency-agents, prompts.chat
 - Si `graphify-out/graph.json` existe: `graphify query "<question>"` avant tout grep ou lecture de source; idem dans chaque prompt de sous-agent.
 - Relations: `graphify path "A" "B"`; concept: `graphify explain "X"`. `GRAPH_REPORT.md` seulement pour une vue d'ensemble.
 - Apres modification de code: `graphify update .` (AST, sans cout API).
-- Pas de graphe: `/sc-map`. Installation (a faire par l'utilisateur): `uv tool install graphifyy` puis `graphify claude install --project`.
+- Binaire local: `.venv/bin/graphify` (ou `source .venv/bin/activate`). Pas de graphe: `/sc-map`. Reinstall: `uv venv .venv && uv pip install -p .venv -e _external_tools/graphify`.
 - Ne pas committer `graphify-out/` sans demande.
 
 ### Routage des sous-agents (agency-agents)
@@ -121,3 +121,14 @@ Use the following skills when working on related files:
 | `*.tsx`, `*.jsx`, `components/**` | `react-patterns`, `react-testing` — for React-specific work invoke `/react-review`, `/react-build`, `/react-test` |
 
 When spawning subagents, always pass conventions from the respective skill into the agent's prompt.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.

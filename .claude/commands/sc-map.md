@@ -5,9 +5,9 @@ argument-hint: [chemin, defaut .]
 
 Cartographie `$ARGUMENTS` (defaut `.`) avec graphify.
 
-1. Si `graphify` est absent: dis a l'utilisateur d'executer `uv tool install graphifyy` puis `graphify claude install --project`. Ne l'installe pas toi-meme. Stop.
-2. Sinon lance `graphify update <chemin>` (AST local, sans cout API) ou `graphify extract <chemin>` pour inclure docs/PDF.
+1. Binaire: `.venv/bin/graphify`. S'il est absent: `uv venv .venv && uv pip install -p .venv -e _external_tools/graphify`.
+2. Lance `.venv/bin/graphify update <chemin>` (AST local, sans cout API) ou `.venv/bin/graphify extract <chemin>` pour inclure docs/PDF.
 3. Lis uniquement `graphify-out/GRAPH_REPORT.md` (resume court). Ne lis pas le code source.
 4. Reponds avec: modules principaux, god nodes, 3 points d'entree. Max 15 lignes.
 
-Ensuite, pour toute question: `graphify query "<question>"`, `graphify path "<A>" "<B>"`, `graphify explain "<concept>"` avant grep.
+Ensuite: `.venv/bin/graphify query "<question>"`, `path "<A>" "<B>"`, `explain "<concept>"` avant grep.
