@@ -1,6 +1,6 @@
 (function (root) {
   'use strict';
-  const DEF = { beta: 0.12, gamma: 0.9, delta: 0.7, rho: 0.6, eps: 0.6, fixed: 460, growth: 0.05, noise: 0.06, aggr: 0, lambda: 0.5, maxMkt: 2000, maxRd: 1500 };
+  const DEF = { beta: 0.12, gamma: 0.9, delta: 0.7, rho: 0.6, eps: 0.6, fixed: 460, growth: 0.05, noise: 0.06, aggr: 0, lambda: 0.5, maxMkt: 2000, maxRd: 1500, budget: 2400 };
   const sum = a => a.reduce((s, x) => s + x, 0);
   const mean = a => sum(a) / a.length;
   const std = a => { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) ** 2))); };
@@ -53,8 +53,14 @@
     const tot = sum(teams.map(t => Math.max(0.1, t.last.share)));
     teams.forEach(t => { t.off = Math.log(Math.max(0.1, t.last.share) / tot) - Math.log(att(P, t.last.price, t.brand, t.q, 0)); });
     const me = teams[mi], units = me.last.rev / me.last.price;
-    const cost = clamp(me.last.price - (me.last.profit + me.last.mkt + me.last.rd + P.fixed) / units, 5, me.last.price - 1);
-    return { P, fitted, teams, mi, units0: sum(teams.map(t => t.last.rev / t.last.price)), pavg0: mean(teams.map(t => t.last.price)), cost };
+    let cost = clamp(me.last.price - (me.last.profit + me.last.mkt + me.last.rd + P.fixed) / units, 5, me.last.price - 1), costFit = null;
+    if (me.hist.length >= 3 && !(over && over.fixed !== undefined)) {
+      const xs = me.hist.map(h => h.rev / h.price), ys = me.hist.map((h, i) => h.profit + h.mkt + h.rd - h.rev), mx = mean(xs), my = mean(ys);
+      const vx = sum(xs.map(x => (x - mx) ** 2));
+      if (vx > 1e-9) { const b = sum(xs.map((x, i) => (x - mx) * (ys[i] - my))) / vx, a = my - b * mx, c = -b, F = -a;
+        if (c >= 5 && c < Math.min(...me.hist.map(h => h.price)) - 0.5 && F >= 0 && F <= 5000) { cost = c; P.fixed = F; costFit = { c, F }; } }
+    }
+    return { P, fitted, costFit, teams, mi, units0: sum(teams.map(t => t.last.rev / t.last.price)), pavg0: mean(teams.map(t => t.last.price)), cost };
   }
   const stateOf = m => ({ brand: m.teams.map(t => t.brand), q: m.teams.map(t => t.q) });
 
@@ -127,10 +133,11 @@
     });
     return { mp, sd: Math.sqrt(v), ms: first.ms, first };
   }
-  function optimize(m, st, k, obj, seed) {
-    const hz = horizon(m, st, k, 3, 100, seed), res = [];
+  function optimize(m, st, k, obj, seed, H, lam, con) {
+    const hz = horizon(m, st, k, H || 3, 100, seed), res = [], L = lam === undefined ? m.P.lambda : lam;
     for (let price = 24; price <= 56; price += 2) for (let mkt = 0; mkt <= m.P.maxMkt; mkt += 100) for (let rd = 0; rd <= m.P.maxRd; rd += 100) {
-      const d = { price, mkt, rd }; res.push({ d, s: score(hval(m, d, hz), obj, m.P.lambda) });
+      if (mkt + rd > m.P.budget || (con && (rd < (con.minRd || 0) || mkt < (con.minMkt || 0)))) continue;
+      const d = { price, mkt, rd }; res.push({ d, s: score(hval(m, d, hz), obj, L) });
     }
     res.sort((a, b) => b.s - a.s);
     return res.slice(0, 5).map(x => x.d);
@@ -194,13 +201,105 @@
     out.push(row.roiRd < 0 ? `R&D à faible retour sur 3 tours (${f0(row.roiRd)} k$ par +100 k$) : effet cumulatif sur la qualité, à justifier par l'horizon.` : `R&D rentable (+${f0(row.roiRd)} k$ sur 3 tours par +100 k$ supplémentaire).`);
     const sens = Object.entries(row.sens).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
     out.push(`Levier le plus sensible : ${{ price: 'prix (+2 $)', mkt: 'marketing (+200 k$)', rd: 'R&D (+200 k$)' }[sens[0]]} change la valeur sur 3 tours de ${sens[1] >= 0 ? '+' : ''}${f0(sens[1])} k$.`);
-    if (d.mkt >= m.P.maxMkt || d.rd >= m.P.maxRd) out.push(`Plafond de budget atteint (marketing ${f0(m.P.maxMkt)} k$, R&D ${f0(m.P.maxRd)} k$) : l'optimum est au bord, vérifiez votre trésorerie réelle et ajustez les plafonds dans Données.`);
+    if (d.mkt + d.rd >= m.P.budget - 50) out.push(`Budget marketing + R&D consommé (${f0(m.P.budget)} k$) : le partage ${f0(d.mkt)} / ${f0(d.rd)} est l'arbitrage optimal sous cette contrainte. Vérifiez votre trésorerie réelle et ajustez le budget dans Données.`);
+    else if (d.mkt >= m.P.maxMkt || d.rd >= m.P.maxRd) out.push(`Plafond atteint (marketing ${f0(m.P.maxMkt)} k$, R&D ${f0(m.P.maxRd)} k$) : ajustez les plafonds dans Données si vos règles le permettent.`);
     const rivals = row.field.filter(x => !x.me).sort((a, b) => (b.share - b.last) - (a.share - a.last));
     const r = rivals[0];
     out.push(`Menace principale : ${r.name} (${(r.share - r.last >= 0 ? '+' : '') + (r.share - r.last).toFixed(1)} pt attendu, prix prévu ${r.dec.price.toFixed(1)} $, marketing ${f0(r.dec.mkt)} k$, R&D ${f0(r.dec.rd)} k$).`);
     const cheap = rivals.slice().sort((a, b) => a.dec.price - b.dec.price)[0];
     if (d.price > cheap.dec.price + 4) out.push(`Alerte prix : vous êtes ${f0(d.price - cheap.dec.price)} $ au-dessus de ${cheap.name} ; justifié seulement par marque et qualité.`);
     return out;
+  }
+
+
+  /* ---------- Retrospective: que fallait-il jouer a chaque tour ---------- */
+  function preAt(m, t) {
+    const P = m.P, brand = [], q = [];
+    m.teams.forEach(tm => { let b = 0, qq = 0; for (let i = 0; i < t; i++) { b = P.rho * b + tm.hist[i].mkt; qq = P.rho * qq + tm.hist[i].rd; } brand.push(b); q.push(qq); });
+    return { brand, q };
+  }
+  function retro(m) {
+    const P = m.P, mi = m.mi, me = m.teams[mi], T = me.hist.length, rows = [];
+    const act = t => m.teams.map(tm => ({ price: tm.hist[t].price, mkt: tm.hist[t].mkt, rd: tm.hist[t].rd }));
+    const fx = t => {
+      const pre = preAt(m, t), dec = act(t); let A = 0, Pc = 0;
+      dec.forEach((x, j) => { if (j !== mi) { A += att(P, x.price, P.rho * pre.brand[j] + x.mkt, P.rho * pre.q[j] + x.rd, m.teams[j].off); Pc += x.price; } });
+      return { pre, A, Pc, N: dec.length, U: sum(m.teams.map(tm => tm.hist[t].rev / tm.hist[t].price)), pavgT: mean(dec.map(x => x.price)) };
+    };
+    const ev = (f, d, b0, q0) => {
+      const a = att(P, d.price, P.rho * b0 + d.mkt, P.rho * q0 + d.rd, me.off), sh = a / (a + f.A), pavg = (d.price + f.Pc) / f.N;
+      return { profit: f.U * Math.pow(pavg / f.pavgT, -P.eps) * sh * (d.price - m.cost) - d.mkt - d.rd - P.fixed, share: sh };
+    };
+    for (let t = 0; t < T; t++) {
+      const f = fx(t), f2 = t + 1 < T ? fx(t + 1) : null, a0 = act(t)[mi], a1 = f2 ? act(t + 1)[mi] : null, b0 = f.pre.brand[mi], q0 = f.pre.q[mi];
+      const V = d => { const e = ev(f, d, b0, q0); let v = e.profit; if (f2) v += 0.9 * ev(f2, a1, P.rho * b0 + d.mkt, P.rho * q0 + d.rd).profit; return { v, e }; };
+      const va = V(a0); let best = null;
+      for (let price = 20; price <= 60; price += 1) for (let mkt = 0; mkt <= Math.max(P.maxMkt, a0.mkt); mkt += 100) for (let rd = 0; rd <= Math.max(P.maxRd, a0.rd); rd += 100) {
+        if (mkt + rd > Math.max(P.budget, a0.mkt + a0.rd)) continue;
+        const d = { price, mkt, rd }, r = V(d); if (!best || r.v > best.v) best = { v: r.v, e: r.e, price, mkt, rd };
+      }
+      const real = me.hist[t], contrib = {};
+      ['price', 'mkt', 'rd'].forEach(k => { contrib[k] = V(Object.assign({}, a0, { [k]: best[k] })).v - va.v; });
+      const mt = { P, teams: m.teams.map(tm => ({ hist: tm.hist.slice(0, t) })) }, surprises = [];
+      if (t >= 1) m.teams.forEach((tm, j) => { if (j === mi) return; const fc = forecast(mt, j, 1), x = tm.hist[t]; surprises.push({ name: tm.name, price: x.price, predicted: fc.price, z: (x.price - fc.price) / fc.sprice, mkt: x.mkt, predMkt: fc.mkt }); });
+      rows.push({ t, a0, best: { price: best.price, mkt: best.mkt, rd: best.rd }, real, pred: { profit: va.e.profit, share: va.e.share * 100 }, err: real.profit - va.e.profit,
+        regret: Math.max(0, best.v - va.v), hindProfit: real.profit + (best.e.profit - va.e.profit), hindShare: real.share + (best.e.share - va.e.share) * 100, contrib, surprises, carry: !!f2 });
+    }
+    return rows;
+  }
+  function retroSummary(rows) {
+    const n = rows.length, g = k => mean(rows.map(r => r.a0[k] - r.best[k])), cs = k => sum(rows.map(r => r.contrib[k]));
+    const cum = sum(rows.map(r => r.regret)), L = [], units = { price: ' $', mkt: ' k$', rd: ' k$' }, names = { price: 'Prix', mkt: 'Marketing', rd: 'R&D' };
+    ['price', 'mkt', 'rd'].forEach(k => {
+      const gap = g(k), thr = k === 'price' ? 1.5 : 150;
+      if (Math.abs(gap) >= thr && cs(k) > 20) L.push(`${names[k]} : vous avez joué en moyenne ${f0(Math.abs(gap))}${units[k]} ${gap > 0 ? 'au-dessus' : 'en dessous'} de l'optimum a posteriori, soit ${f0(cs(k))} k$ de valeur perdue sur ${n} tours. Correction : ${gap > 0 ? 'abaisser' : 'relever'} la base de ${f0(Math.abs(gap) / 2)}${units[k]} dès le prochain tour et revoir la règle de décision.`);
+    });
+    const errRel = mean(rows.map(r => r.err)) / (mean(rows.map(r => Math.abs(r.pred.profit))) || 1);
+    if (Math.abs(errRel) > 0.1) L.push(`Écart modèle : le profit réalisé est en moyenne ${errRel < 0 ? 'inférieur' : 'supérieur'} de ${f0(Math.abs(errRel) * 100)} % à la prévision du modèle. ${errRel < 0 ? 'Appliquer une décote prudente aux projections et vérifier coûts et règles du simulateur.' : 'Le modèle est conservateur : les projections sont prudentes.'}`);
+    if (n >= 4) { const a = mean(rows.slice(-2).map(r => r.regret)), b = mean(rows.slice(0, -2).map(r => r.regret)); L.push(a < b ? `Progression : le regret moyen passe de ${f0(b)} k$ (tours précédents) à ${f0(a)} k$ (2 derniers tours). Vos décisions se rapprochent de l'optimum.` : `Dérive : le regret moyen passe de ${f0(b)} k$ à ${f0(a)} k$ sur les 2 derniers tours. Reprendre la recommandation du modèle comme base de décision.`); }
+    rows.forEach(r => r.surprises.filter(s => Math.abs(s.z) > 1.5).forEach(s => L.push(`T${r.t + 1} : ${s.name} a pris le marché à contre-pied (prix ${s.price.toFixed(1)} $ contre ${s.predicted.toFixed(1)} $ attendu). Surveiller ses mouvements et anticiper une réaction.`)));
+    return { cum, mean: cum / n, last: rows[n - 1].regret, lessons: L, bias: { price: g('price'), mkt: g('mkt'), rd: g('rd') }, errRel };
+  }
+
+  /* ---------- Options strategiques, regles de reaction, courbes de reponse ---------- */
+  function options(m) {
+    const st = stateOf(m), hz5 = horizon(m, st, 1, 5, 600, 9);
+    const defs = [['defend', 'Défendre la rentabilité', 'prudent', 3, 1.2, null, 'Les rivaux restent proches de leur tendance ; la marge prime sur la part.'],
+      ['grow', 'Gagner des parts de marché', 'share', 3, 0.5, null, 'La part de marché se transforme en profit durable ; les rivaux ne ripostent pas immédiatement.'],
+      ['invest', 'Pari qualité et innovation', 'profit', 5, 0.5, { minRd: Math.min(m.P.maxRd, Math.round(m.P.budget * 0.7 / 100) * 100) }, 'La R&D s\'accumule (rétention de 60 % par tour) et se paie sur 5 tours ; les rivaux n\'imitent pas vite.']];
+    const out = defs.map(([id, label, obj, H, lam, con, bet]) => {
+      const d = optimize(m, st, 1, obj, 31, H, lam, con)[0], a = analyse(m, st, 1, d, null), v5 = hval(m, d, hz5);
+      return { id, label, bet, dec: d, a, val5: v5.mp, sd5: v5.sd, score: v5.mp - m.P.lambda * v5.sd };
+    });
+    const l = m.teams[m.mi].last, hd = { price: l.price, mkt: l.mkt, rd: l.rd }, hv = hval(m, hd, hz5);
+    out.push({ id: 'hold', label: 'Reconduire la décision du dernier tour', bet: 'Rien ne change chez les rivaux et le marché reste stable.', dec: hd, a: analyse(m, st, 1, hd, null), val5: hv.mp, sd5: hv.sd, score: hv.mp - m.P.lambda * hv.sd });
+    const bestI = out.reduce((b, o, i) => (o.score > out[b].score ? i : b), 0);
+    out.forEach((o, i) => { o.recommended = i === bestI; });
+    return out;
+  }
+  function reactionRules(m, rival) {
+    const st = stateOf(m), base = plan(m, 1, 'prudent')[0].dec, ri = m.teams.findIndex(t => t.name === rival), rows = [];
+    for (const dl of [-4, -2, 0, 2, 4]) {
+      let best = null;
+      for (let p = base.price - 8; p <= base.price + 8; p += 1) {
+        const decs = meanDecs(m, 1, { price: p, mkt: base.mkt, rd: base.rd }); decs[ri] = Object.assign({}, decs[ri], { price: decs[ri].price + dl });
+        const r = evalRound(m, st, decs, 1, 0), me = r[m.mi];
+        if (!best || me.profit > best.profit) best = { price: p, profit: me.profit, share: me.share * 100, rivalPrice: decs[ri].price };
+      }
+      rows.push(Object.assign({ delta: dl }, best));
+    }
+    return { base, rows };
+  }
+  function sweep(m, st, d, lever, k) {
+    const hz = horizon(m, st, k || 1, 3, 400, 5), lo = { price: 24, mkt: 0, rd: 0 }[lever], hi = Math.max(lo + 1, Math.min({ price: 56, mkt: m.P.maxMkt, rd: m.P.maxRd }[lever], lever === 'mkt' ? m.P.budget - d.rd : lever === 'rd' ? m.P.budget - d.mkt : 56)), pts = [];
+    for (let i = 0; i <= 24; i++) {
+      const x = lever === 'price' ? Math.round((lo + (hi - lo) * i / 24) * 2) / 2 : Math.round(lo + (hi - lo) * i / 24);
+      const h = hval(m, Object.assign({}, d, { [lever]: x }), hz, true), s = stats(h.first.pr);
+      pts.push({ x, val: h.mp, mean: s.mean, p10: s.p10, p90: s.p90, share: h.ms * 100 });
+    }
+    const bi = pts.reduce((b, p, i) => (p.val > pts[b].val ? i : b), 0), top = pts[bi].val, span = Math.max(1, top - Math.min(...pts.map(p => p.val)));
+    const ok = pts.filter(p => p.val >= top - 0.05 * span);
+    return { pts, best: pts[bi], plateau: [Math.min(...ok.map(p => p.x)), Math.max(...ok.map(p => p.x))] };
   }
 
   function sample() {
@@ -231,6 +330,6 @@
     return { me: me || teams[0].name, teams };
   }
 
-  const api = { DEF, fit, calibrate, stateOf, forecast, scenarios, evalMine, optimize, evalRound, analyse, plan, matrix, advise, sample, fromCsv, stats };
+  const api = { DEF, fit, retro, retroSummary, options, reactionRules, sweep, preAt, calibrate, stateOf, forecast, scenarios, evalMine, optimize, evalRound, analyse, plan, matrix, advise, sample, fromCsv, stats };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.WR = api;
 })(typeof window !== 'undefined' ? window : globalThis);

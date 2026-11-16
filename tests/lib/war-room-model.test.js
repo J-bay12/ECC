@@ -27,3 +27,21 @@ const csv = 'round,team,price,mkt,rd,rev,profit,share\n1,X,30,100,50,500,40,60\n
 assert.strictEqual(M.fromCsv(csv, 'X').teams.length, 2);
 void me;
 console.log('war-room model: ok');
+
+// retrospective, options, reaction rules, sweep
+{
+  const mm = M.calibrate(M.sample());
+  assert.ok(mm.costFit && Math.abs(mm.costFit.c - 27) < 1.5, 'cost fit ' + JSON.stringify(mm.costFit));
+  const rows = M.retro(mm), sum = M.retroSummary(rows);
+  assert.strictEqual(rows.length, 4);
+  rows.forEach(r => assert.ok(r.regret >= 0 && isFinite(r.hindProfit)));
+  assert.ok(isFinite(sum.cum) && Array.isArray(sum.lessons));
+  const opts = M.options(mm);
+  assert.strictEqual(opts.length, 4);
+  assert.strictEqual(opts.filter(o => o.recommended).length, 1);
+  assert.strictEqual(M.reactionRules(mm, 'B').rows.length, 5);
+  const sw = M.sweep(mm, M.stateOf(mm), opts[0].dec, 'price', 1);
+  assert.strictEqual(sw.pts.length, 25);
+  assert.ok(sw.plateau[0] <= sw.best.x && sw.best.x <= sw.plateau[1]);
+  console.log('war-room retro/options: ok');
+}
