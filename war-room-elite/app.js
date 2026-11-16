@@ -69,8 +69,9 @@ function rStrat() {
 }
 
 /* ---------- Reco ultime ---------- */
+const idle = async () => { while (busy) await new Promise(r => setTimeout(r, 200)); };
 async function runReco() {
-  if (busy) return; busy = true; const st = $('reco-status'); if (st) st.textContent = 'Optimisation en cours…';
+  await idle(); busy = true; const st = $('reco-status'); if (st) st.textContent = 'Optimisation en cours…';
   try { rec = await O.optimize(X.clone(S), ctxOf(), (l, j) => { const e = $('reco-status'); if (e) e.textContent = `Départ « ${l} » : score ${fmt(j, 1)}`; }); rec.settings = Object.assign({}, opt); } catch (e) { const el = $('reco-status'); if (el) el.textContent = 'Erreur : ' + e.message; }
   busy = false; render(view);
 }
@@ -115,7 +116,7 @@ function moves(r) {
   return [`Prix moyen ${sg(dp, 2)} $`, `marketing ${sg(mk / 1000, 1)} M$`, `automatisation ${sg(au, 1)} pt`, `R&D sur ${rd} produit(s)`, F.bond ? `obligations ${k$(F.bond)}` : '', F.stock ? `actions ${k$(F.stock)}` : '', `fournisseur ${X.SUP[F.supplier].n}`].filter(Boolean).join(' · ');
 }
 async function runPlan() {
-  if (busy) return; busy = true; const st = $('plan-status');
+  await idle(); busy = true; const st = $('plan-status');
   try { plan = await O.planYears(X.clone(S), E, opt.years, opt, (y, n) => { const e = $('plan-status'); if (e) e.textContent = `Round ${y}/${n} planifié…`; }); planSel = 0; } catch (e) { if (st) st.textContent = 'Erreur : ' + e.message; }
   busy = false; render(view);
 }
@@ -157,7 +158,7 @@ function attackBlock() {
   return `<div class="grid g3" style="margin-top:10px">${tile('Valeur de l\'information', sg(attack.value, 1) + ' pts de score', 'attaque contre équipes réelles vs réponse générique', attack.value > 0 ? 'good' : '')}${tile('Capitalisation (attaque)', fmt(attack.cap, 1) + ' M$', 'scénario : équipes réelles, tendance')}${tile('Curseurs qui changent', String(attack.diffs.length), 'par rapport à la réponse générique')}</div><div class="tablebox" style="margin-top:10px"><table><tr><th>Curseur</th><th>Réponse générique</th><th>Attaque</th></tr>${attack.diffs.map(d => `<tr><td>${esc(d.label)}</td><td>${esc(d.a)}</td><td><strong>${esc(d.b)}</strong></td></tr>`).join('')}</table></div><div class="row" style="margin-top:8px"><button type="button" data-act="applyattack">Appliquer l'attaque au simulateur</button></div>`;
 }
 async function runAttack() {
-  if (busy) return; busy = true; const st = $('atk-status'); if (st) st.textContent = 'Calcul du plan d\'attaque…';
+  await idle(); busy = true; const st = $('atk-status'); if (st) st.textContent = 'Calcul du plan d\'attaque…';
   try {
     const ci = ctxOf(), cg = O.context(E, opt.mode, opt.futureW, opt.trust, opt.penW, opt.look, 0), a = await O.optimize(X.clone(S), ci), g = await O.optimize(X.clone(S), cg);
     const sp = O.specs(X.clone(a.state), { trust: false, esgKnown: true }), sg2 = O.specs(X.clone(g.state), { trust: false, esgKnown: true }), diffs = [];
